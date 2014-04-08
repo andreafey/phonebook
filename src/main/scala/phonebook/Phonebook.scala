@@ -9,12 +9,14 @@ object Phonebook {
     val default = "hsphonebook.pb"
     def usage = {
         println("""Usage:
-    phonebook create <file>.pb 
-    phonebook lookup <name> -b <file>.pb
-    phonebook add '<name>' '123 456 4323' -b <file>.pb
-    phonebook change '<name>' '232 987 3940' -b <file>.pb
-    phonebook remove '<name>' -b <file>.pb
-    phonebook reverse-lookup '312 432 4252' -b <file>.pb""")
+	phonebook create <file>.pb          Creates empty phonebook
+    phonebook open [<file>.pb]          Opens an interactive phonebook; creates empty phonebook if needed
+                                        Supports all commands below without the phonebook prefix or -b file switch
+    phonebook lookup <name> [-b <file>.pb]     
+    phonebook add '<name>' '123 456 4323' [-b <file>.pb]
+    phonebook change '<name>' '232 987 3940' [-b <file>.pb]
+    phonebook remove '<name>' [-b <file>.pb]
+    phonebook reverse-lookup '312 432 4252' [-b <file>.pb]""")
                 /*
 created phonebook hsphonebook.pb in the current directory
 
@@ -37,9 +39,38 @@ $ phonebook reverse-lookup '312 432 5432'
         val pb = new File(file)
         assert(!pb.exists)
         pb.getParentFile.mkdirs
+        // create an empty file
+		new FileWriter(file).close
         new Phonebook(pb.getPath)
     }
     def open(file:String) = new Phonebook(file)
+    def lookup(str: String, pb: phonebook.Phonebook, 
+            reverse:Boolean = false, suppressOutput:Boolean = false) = {
+        val matches = if (reverse) pb.lookup(str)(pb.numtrie)
+        else pb.lookup(str)(pb.nametrie)
+        if (!suppressOutput) {
+        	if (matches.isEmpty) println("No matches")
+        	else matches.foreach(e => println(e))
+        }
+    }
+    def change(name:String, number:String, pb:Phonebook):Boolean = {
+    	val matches = pb.lookup(name)(pb.nametrie)
+    	matches.size match {
+    	    case 0 => {
+    	        println ("match not found")
+    	        false
+    	    }
+    	    case 1 => {
+    	        matches.next().number = number
+    	        true
+    	    } 
+    	    case _ => {
+        	    println ("multiple matches found")
+        	    matches.foreach(e => println(e))
+        	    false
+    	    }
+    	}
+    }
     def main(args:Array[String]) = {
         args match {
         case Array() => usage
@@ -50,29 +81,31 @@ $ phonebook reverse-lookup '312 432 5432'
 	            val name = args(1)
 	            val file =
 	                if (args.size > 2  && args(2) == "-b") args(3)
-	            	else default
-            	val pb = open(file)
-            	val matches = pb.lookup(name)(pb.nametrie)
-            	if (matches.isEmpty) println("No matches")
-            	else matches.foreach(e => println(e))
+	            	else {
+	            	    println ("Using default phonebook")
+	            	    default
+	            	}
+            	lookup(name, open(file))
 	        }
 	        case "reverse-lookup" => {
 	            val number = args(1)
 	            val file =
 	                if (args.size > 2  && args(2) == "-b") args(3)
-	            	else default
-            	val pb = open(file)
-            	val matches = pb.lookup(number)(pb.numtrie)
-            	if (matches.isEmpty) println("No matches")
-            	else matches.foreach(e => println(e))
-	            
+	            	else {
+	            	    println ("Using default phonebook")
+	            	    default
+	            	}
+	            lookup(number, open(file), true)
 	        }
 	        case "add" => {
 	            val name = args(1)
 	            val number = args(2)
 	            val file =
 	                if (args.size > 3  && args(3) == "-b") args(4)
-	            	else default
+	            	else {
+	            	    println ("Using default phonebook")
+	            	    default
+	            	}
             	val pb = open(file)
             	val matches = pb.lookup(name)(pb.nametrie)
             	if (matches.isEmpty) {
@@ -89,20 +122,8 @@ $ phonebook reverse-lookup '312 432 5432'
 	            val file =
 	                if (args.size > 3  && args(3) == "-b") args(4)
 	            	else default
-	            // TODO this should just call change and let change return true or false
             	val pb = open(file)
-            	val matches = pb.lookup(name)(pb.nametrie)
-            	matches.size match {
-            	    case 0 => println ("match not found")
-            	    case 1 => {
-            	        matches.next().number = number  
-            	        pb.save
-            	    } 
-            	    case _ => {
-	            	    println ("multiple matches found")
-	            	    matches.foreach(e => println(e))
-            	    }
-            	}
+            	if (change(name, number, pb)) pb.save
 	        }
 	        case "remove" => {
 	            val name = args(1)
@@ -124,13 +145,18 @@ $ phonebook reverse-lookup '312 432 5432'
             	}
 	        }
 	        case "open" => {
-	            val file = args(1)
+	            val file = if (args.size > 1) args(1)
+	            else {
+            	    println ("Using default phonebook")
+	                default
+	            }
 	            
 	        }
         case _ => usage
         }
     }
 }
+  
 }
 class Phonebook(file:String) {
     
@@ -181,17 +207,6 @@ class Phonebook(file:String) {
             }
         }
         override def compareTo(that:Trie) = this.c.compareTo(that.c)
-            // scala tree separates node from leaf and uses this as iterator impl
-//332	  def toList(acc: List[(A,B)]): List[(A,B)] =
-//333	    smaller.toList((key, value) :: bigger.toList(acc))
-//334	
-//        override def toString = toSeq(children.toSeq, Seq(c)).mkString(" ")
-//        def toSeq(tries:Seq[Trie], acc:Seq[Char]):Seq[Char] = tries match {
-//            case Seq() => acc
-//            case t :: ts =>
-//                // TODO this is wrong - recursive
-//                toSeq(ts, acc ++ Seq(c)) ++ toSeq(t.children.toSeq, Seq())
-//        }
     }
     
     def add(name:String, number:String):Unit = {
@@ -217,14 +232,13 @@ class Phonebook(file:String) {
     def entries = nametrie.iterator
     
     def save = {
-        if (entries.nonEmpty) {
-            val pbdata = (for {
-                e <- entries
-            } yield "'%s' '%s'".format(e.name, e.number)).mkString("\n")
-        	val out = new java.io.FileWriter(file)
-        	out.write(pbdata)
-        	out.close
-        }
+		val pbdata = if (entries.nonEmpty) (for {
+			e <- entries
+		} yield "'%s' '%s'".format(e.name, e.number)).mkString("\n")
+		else ""
+		val out = new java.io.FileWriter(file)
+		out.write(pbdata)
+		out.close
     }
     def lookup(str:String)(trie:Trie = nametrie):Iterator[Entry] = matches(str)(trie) match {
         case None => Iterator()
