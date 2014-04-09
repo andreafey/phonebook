@@ -9,6 +9,7 @@ tmp/
 *.log
 *.zip
 test.sc
+foo.pb
 
 ### Scala/Java ###
 *.class

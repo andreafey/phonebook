@@ -15,7 +15,7 @@ object Phonebook {
   [Enter] to quit""")
     def usage = {
         println("""Usage:
-	phonebook create <file>.pb          Creates empty phonebook
+    phonebook create <file>.pb          Creates empty phonebook
     phonebook open [<file>.pb]          Opens an interactive phonebook; creates empty phonebook if needed
                                         Supports all commands below without the phonebook prefix or -b file switch
     phonebook lookup <name> [-b <file>.pb]     
@@ -33,23 +33,31 @@ Sarah Orange 123 456 7890
 sbt
 sbt run add ...
 $ phonebook add 'John Michael' '123 456 4323' -b hsphonebook.pb # error message on duplicate name    
-
 $ phonebook change 'John Michael' '234 521 2332' -b hsphonebook.pb # error message on not exist
-
 $ phonebook remove 'John Michael' -b hsphonebook.pb # error message on not exist
-
 $ phonebook reverse-lookup '312 432 5432'
 * */
     }
-    def create(file:String) = {
+    def create(file:String):Option[Phonebook] = {
         val pb = new File(file)
-        assert(!pb.exists)
-        pb.getParentFile.mkdirs
-        // create an empty file
-		new FileWriter(file).close
-        new Phonebook(pb.getPath)
+        if (!pb.exists) {
+        	if (pb.getParentFile != null) pb.getParentFile.mkdirs
+        	// create an empty file
+        	new FileWriter(file).close
+        	println("created phonebook " + pb.getPath)
+        	Some(new Phonebook(file))
+        } else {
+            println(pb.getPath + " already exists")
+            None
+        }
     }
-    def open(file:String) = new Phonebook(file)
+    def open(file:String):Option[Phonebook] = {
+        if (!new File(file).exists) {
+            println("file does not exist")
+            None
+        }
+        else Some(new Phonebook(file))
+    }
     def lookup(str: String, pb: phonebook.Phonebook, 
             reverse:Boolean = false, suppressOutput:Boolean = false) = {
         val matches = pb.lookup(str, reverse)
@@ -74,7 +82,6 @@ $ phonebook reverse-lookup '312 432 5432'
     	            println("error encountered")
     	            false
     	        }
-    	        
     	    }
     	    case _ => {
         	    println ("multiple matches found")
@@ -129,11 +136,10 @@ $ phonebook reverse-lookup '312 432 5432'
         (list(0), list(1))
     }
     
-    def main(args:Array[String]) = {
+    def main(args:Array[String]):Unit = {
         args match {
         case Array() => usage
         case _ => args(0) match {
-            case "create" => create(args(1)).save
             // phonebook impl adds phone numbers by default
 	        case "lookup" => {
 	            val name = args(1)
@@ -143,7 +149,10 @@ $ phonebook reverse-lookup '312 432 5432'
 	            	    println ("Using default phonebook")
 	            	    default
 	            	}
-            	lookup(name, open(file))
+	            open(file) match {
+	                case Some(pb) => lookup(name, pb)
+	                case None => Unit
+	            }
 	        }
 	        case "reverse-lookup" => {
 	            val number = args(1)
@@ -153,7 +162,10 @@ $ phonebook reverse-lookup '312 432 5432'
 	            	    println ("Using default phonebook")
 	            	    default
 	            	}
-	            lookup(number, open(file), true)
+	            open(file) match {
+	                case Some(pb) => lookup(number, pb, true)
+	                case None => Unit
+	            }
 	        }
 	        case "add" => {
 	            val name = args(1)
@@ -164,8 +176,10 @@ $ phonebook reverse-lookup '312 432 5432'
 	            	    println ("Using default phonebook")
 	            	    default
 	            	}
-            	val pb = open(file)
-            	if(add(name, number, pb)) pb.save
+	            open(file) match {
+	                case Some(pb) => if (add(name, number, pb)) pb.save
+	                case None => Unit
+	            }
 	        }
 	        case "change" => {
 	            val name = args(1)
@@ -173,17 +187,26 @@ $ phonebook reverse-lookup '312 432 5432'
 	            val file =
 	                if (args.size > 3  && args(3) == "-b") args(4)
 	            	else default
-            	val pb = open(file)
-            	if (change(name, number, pb)) pb.save
+	            open(file) match {
+	                case Some(pb) => if (change(name, number, pb)) pb.save
+	                case None => Unit
+	            }
 	        }
 	        case "remove" => {
 	            val name = args(1)
 	            val file =
 	                if (args.size > 2  && args(2) == "-b") args(3)
 	            	else default
-            	val pb = open(file)
-	            remove(name, pb)
-    	        pb.save
+	            open(file) match {
+	                case Some(pb) => if (remove(name, pb)) pb.save
+	                case None => Unit
+	            }
+	        }
+	        case "create" => {
+	            create(args(1)) match {
+	                case Some(pb) => interactive(pb)
+	                case None => Unit
+	            }
 	        }
 	        case "open" => {
 	            val file = if (args.size > 1) args(1)
@@ -191,53 +214,52 @@ $ phonebook reverse-lookup '312 432 5432'
             	    println ("Using default phonebook")
 	                default
 	            }
-	            // TODO error message if existing pb not provided
-	            val pb = open(file)
-        		println("Enter a command (help for command list):")
-	            Iterator.continually(Console.readLine).takeWhile(_ != "").foreach(line => {
-//	                println("read " + line)
-	                val spacei = line.indexOf(" ", 1)
-	                val (cmd, cmdargs):(String, String) = 
-	                    if (spacei < 0) (line, "") else line.splitAt(spacei)
-                    cmd match {
-	                    case "list" => pb.entries.foreach(e => println(e))
-	                    case "exit" => println("return to exit or type another command")
-	                    case "help" => println(help)
-            			case "lookup" => {
-            				// what follows is the search string
-            				val search = line.substring(cmd.length + 1)
-            				println("cmdargs: " + cmdargs)
-    						println("search " + search)
-    						lookup(cmdargs, pb)
-//            						pb.lookup(Phonebook.tx4lookup(cmdargs))(pb.nametrie)
-//            						lookup(cmdargs, pb)
-            			}
-            			case "reverse-lookup" => lookup(cmdargs, pb, true)
-            			case "add" => {
-            			    val (name, number) = splitArgs(cmdargs)
-            			    add(name, number, pb)
-            			}
-            			case "change" => {
-            			    val (name, number) = splitArgs(cmdargs)
-            			    change(name, number, pb)
-            			}
-            			case "remove" => remove(cmdargs, pb)
-            			case _ => help
-            			
-            			// TODO changes don't save
-            			// add followed by lookup doesn't work
-	                }
-	            })
-	            
-	            pb.save
-	            println ("Changes saved. Goodbye.")
+	            open(file) match {
+	                case Some(pb) => interactive(pb)
+	                case None => Unit
+	            }
 	        }
-        case _ => usage
+	        case _ => usage
         }
     }
    }
-  
-  
+  /**
+   * The interactive UI to a Phonebook; prompts user for input and responds
+   * according to commands.
+   */
+  private def interactive(pb: phonebook.Phonebook): Unit = {
+      println("Enter a command (help for command list):")
+      Iterator.continually(Console.readLine).takeWhile(_ != "").foreach(line => {
+          val spacei = line.indexOf(" ", 1)
+          val (cmd, cmdargs):(String, String) = 
+              if (spacei < 0) (line, "") else line.splitAt(spacei)
+          cmd match {
+              case "list" => pb.entries.foreach(e => println(e))
+              case "exit" => println("return to exit or type another command")
+              case "help" => println(help)
+              case "lookup" => {
+              // what follows is the search string
+              val search = line.substring(cmd.length + 1)
+              println("cmdargs: " + cmdargs)
+              println("search " + search)
+              lookup(cmdargs, pb)
+              }
+              case "reverse-lookup" => lookup(cmdargs, pb, true)
+              case "add" => {
+                  val (name, number) = splitArgs(cmdargs)
+                  add(name, number, pb)
+              }
+              case "change" => {
+                  val (name, number) = splitArgs(cmdargs)
+                  change(name, number, pb)
+              }
+              case "remove" => remove(cmdargs, pb)
+              case _ => help
+          }
+      })
+      pb.save
+      println ("Changes saved. Goodbye.")
+    }
 }
 class Phonebook(file:String) {
     
