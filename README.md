@@ -16,6 +16,8 @@ Phonebook application which can be run either as a command line utility or as an
 
 ### Command Line Utility
 
+(Commands must either be issued from an sbt shell or passed in quotes to sbt.)
+
 ```
 Usage:
     phonebook create <file>.pb          Creates empty phonebook
