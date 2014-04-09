@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/andreafey/conway.svg)](https://travis-ci.org/andreafey/conway)
+[![Build Status](https://travis-ci.org/andreafey/phonebook.svg)](https://travis-ci.org/andreafey/phonebook)
 
 #Phonebook
 
