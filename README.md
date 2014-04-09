@@ -44,15 +44,18 @@ Available Commands:
 #### From Eclipse Scala IDE
 
     Right-click on the Phonebook.scala file
-      > Run Configurations > Arguments >create foo.pb
+      > Run Configurations > Arguments > create foo.pb
       OR 
-      > Run Configurations > Arguments >open foo.pb
+      > Run Configurations > Arguments > open foo.pb
 
 #### From SBT
 
-    $ sbt "run create foo.pb"
+    $ sbt "phonebook create foo.pb"
     OR
-    $ sbt "run open foo.pb"
+    $ sbt "phonebook open foo.pb"
+    OR 
+    $ sbt
+    > phonebook open foo.pb
 
 #### Sample session
 ```
