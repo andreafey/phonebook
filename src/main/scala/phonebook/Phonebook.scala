@@ -7,6 +7,11 @@ import java.io.FileWriter
 
 object Phonebook {
     val default = "hsphonebook.pb"
+    /* Help is for the interactive console; usage is for the command line utility */
+    def help = println("""Commands:
+  list, help, exit,
+  lookup <str>, reverse-lookup <str>, remove <str>,
+  add '<name>' '<number>', change '<name>' '<number>'""")
     def usage = {
         println("""Usage:
 	phonebook create <file>.pb          Creates empty phonebook
@@ -46,24 +51,24 @@ $ phonebook reverse-lookup '312 432 5432'
     def open(file:String) = new Phonebook(file)
     def lookup(str: String, pb: phonebook.Phonebook, 
             reverse:Boolean = false, suppressOutput:Boolean = false) = {
-        val matches = if (reverse) pb.lookup(str)(pb.numtrie)
-        else pb.lookup(str)(pb.nametrie)
+        val matches = pb.lookup(str, reverse)
+//        val lookup = tx4lookup(str)
+//        val matches = if (reverse) pb.lookup(lookup)(pb.numtrie)
+//        else pb.lookup(lookup)(pb.nametrie)
         if (!suppressOutput) {
         	if (matches.isEmpty) println("No matches")
         	else matches.foreach(e => println(e))
         }
     }
     def change(name:String, number:String, pb:Phonebook):Boolean = {
-    	val matches = pb.lookup(name)(pb.nametrie)
+    	val matches = pb.lookup(name)
+    	// TODO could simplify by just testing the result of pb.change and printing
     	matches.size match {
     	    case 0 => {
     	        println ("match not found")
     	        false
     	    }
-    	    case 1 => {
-    	        matches.next().number = number
-    	        true
-    	    } 
+    	    case 1 => pb.change(name, number)
     	    case _ => {
         	    println ("multiple matches found")
         	    matches.foreach(e => println(e))
@@ -71,6 +76,46 @@ $ phonebook reverse-lookup '312 432 5432'
     	    }
     	}
     }
+  
+   
+   def add(name: String, number: String, pb: phonebook.Phonebook): Boolean = {
+      val matches = pb.lookup(name)
+      if (matches.isEmpty) {
+          pb.add(name, number)
+          true
+      }
+      else {
+          println("not added; match(es) found")
+          matches.foreach(e => println(e))
+          false
+      }
+    }
+   
+    def remove(name: String, pb: phonebook.Phonebook): Boolean = {
+       val matches = pb.lookup(name)
+       matches.size match {
+           case 0 => {
+               println ("match not found")
+               false
+           }
+           case 1 => {
+               pb.remove(matches.next())
+               true
+           }
+           case _ =>  {
+    	       println ("multiple matches found")
+    	       matches.foreach(e => println(e))
+    	       false
+           }
+        }
+    }
+    /* Splits arguments in the form "'xx' 'yy'" into ("xx", "yy") */
+    def splitArgs(args:String):(String,String) = {
+        val list = args.split("'").filter(_.size > 1)
+        assert(list.size == 2)
+        (list(0), list(1))
+    }
+    
     def main(args:Array[String]) = {
         args match {
         case Array() => usage
@@ -107,14 +152,7 @@ $ phonebook reverse-lookup '312 432 5432'
 	            	    default
 	            	}
             	val pb = open(file)
-            	val matches = pb.lookup(name)(pb.nametrie)
-            	if (matches.isEmpty) {
-            	    pb.add(name, number)
-            	    pb.save
-            	}
-	            // TODO see requirements for error
-            	else matches.foreach(e => println(e))
-	            
+            	if(add(name, number, pb)) pb.save
 	        }
 	        case "change" => {
 	            val name = args(1)
@@ -131,18 +169,8 @@ $ phonebook reverse-lookup '312 432 5432'
 	                if (args.size > 2  && args(2) == "-b") args(3)
 	            	else default
             	val pb = open(file)
-            	val matches = pb.lookup(name)(pb.nametrie)
-            	matches.size match {
-            	    case 0 => println ("match not found")
-            	    case 1 => {
-            	        pb.remove(matches.next())
-            	        pb.save
-            	    }
-            	    case _ =>  {
-	            	    println ("multiple matches found")
-	            	    matches.foreach(e => println(e))
-            	    }
-            	}
+	            remove(name, pb)
+    	        pb.save
 	        }
 	        case "open" => {
 	            val file = if (args.size > 1) args(1)
@@ -150,12 +178,52 @@ $ phonebook reverse-lookup '312 432 5432'
             	    println ("Using default phonebook")
 	                default
 	            }
+	            // TODO error message if existing pb not provided
+	            val pb = open(file)
+        		println("Enter a command (help for command list):")
+	            Iterator.continually(Console.readLine).takeWhile(_ != "").foreach(line => {
+//	                println("read " + line)
+	                val spacei = line.indexOf(" ", 1)
+	                val (cmd, cmdargs):(String, String) = 
+	                    if (spacei < 0) (line, "") else line.splitAt(spacei)
+                    cmd match {
+	                    case "list" => pb.entries.foreach(e => println(e))
+	                    case "exit" => println("return to exit or type another command")
+	                    case "help" => println(help)
+            			case "lookup" => {
+            				// what follows is the search string
+            				val search = line.substring(cmd.length + 1)
+            				println("cmdargs: " + cmdargs)
+    						println("search " + search)
+    						lookup(cmdargs, pb)
+//            						pb.lookup(Phonebook.tx4lookup(cmdargs))(pb.nametrie)
+//            						lookup(cmdargs, pb)
+            			}
+            			case "reverse-lookup" => lookup(cmdargs, pb, true)
+            			case "add" => {
+            			    val (name, number) = splitArgs(cmdargs)
+            			    add(name, number, pb)
+            			}
+            			case "change" => {
+            			    val (name, number) = splitArgs(cmdargs)
+            			    change(name, number, pb)
+            			}
+            			case "remove" => remove(cmdargs, pb)
+            			case _ => help
+            			
+            			// TODO changes don't save
+            			// add followed by lookup doesn't work
+	                }
+	            })
 	            
+	            pb.save
+	            println ("Changes saved. Goodbye.")
 	        }
         case _ => usage
         }
     }
-}
+   }
+  
   
 }
 class Phonebook(file:String) {
@@ -168,21 +236,15 @@ class Phonebook(file:String) {
         val lines = Source.fromFile(file).getLines
         val entries = lines.foreach { line =>
             val pieces = line.split("'").filter(_.size > 1)
-            if (pieces.size > 1) {
-	            val entry = new Entry(pieces(0), pieces(1))
-	            // name, phone number without spaces or extra chars
-	            add(nametrie, entry, tx4Lookup(entry.name))
-	            add(numtrie, entry, tx4Lookup(entry.number))
-            }
+            if (pieces.size > 1) add(pieces(0), pieces(1))
         }
     }
-    def tx4Lookup(str:String):List[Char] = str.toLowerCase.replace(" ", "").toList
     
 	class Entry(val name:String, var number:String) {
 	    override def toString = name + " " + number
 	}
 	
-	// TODO abstract and generify?
+	// TODO generify
     class Trie(val c:Char, 
             val children:collection.mutable.SortedSet[Trie] = collection.mutable.SortedSet(), 
             val entries:collection.mutable.Set[Entry] = collection.mutable.Set()) 
@@ -191,32 +253,35 @@ class Phonebook(file:String) {
         def iterator:Iterator[Entry] = toList(children.toList, List()).iterator
         private def toList(children:List[Trie], 
                 acc:List[Entry]):List[Entry] = children.toList match {
-            // TODO revisit to make more efficient
+            // TODO make more efficient with cons lists instead of concat
             case List() => entries.toList ++ acc
             case ch :: chs => entries.toList ++ acc ++ ch.toList(ch.children.toList, List()) ++ toList(chs, List())
         }
         def find(chars:List[Char]):Option[Trie] = chars match {
             case Nil => Some(this)
             case c :: cs => {
-                if (c.toLower == this.c)
-	                children.find(t => t.c == c) match {
-	                    case None => None
-	                    case Some(child) => child.find(cs)
-	                }
-                else None
+                children.find(t => t.c == c) match {
+                    case None => None
+                    case Some(child) => child.find(cs)
+                }
             }
         }
         override def compareTo(that:Trie) = this.c.compareTo(that.c)
     }
     
+    /** Helper method to strip off non-alphanumeric chars */
+    private def tx4lookup(str:String):String = 
+        str.toLowerCase.replaceAll("[^a-z0-9]", "")
+    
     def add(name:String, number:String):Unit = {
-		add(nametrie, new Entry(name, number), name.toList) 
+        val entry = new Entry(name, number)
+        add(nametrie, entry, tx4lookup(name).toList)
+        add(numtrie, entry, tx4lookup(number).toList)
         Unit
     } 
     private def add(trie:Trie, entry:Entry, seq:List[Char]):Trie = seq match {
         case List() => {
             trie.entries.add(entry)
-//            println ("added " + entry)
             trie
         }
         case c :: cs => trie.children.find(child => c == child.c) match {
@@ -240,20 +305,33 @@ class Phonebook(file:String) {
 		out.write(pbdata)
 		out.close
     }
-    def lookup(str:String)(trie:Trie = nametrie):Iterator[Entry] = matches(str)(trie) match {
+    
+    def lookup(str:String, reverse:Boolean = false):Iterator[Entry] =
+    		if (reverse) lookup(tx4lookup(str), numtrie)
+    		else lookup(tx4lookup(str), nametrie)
+    		
+    private def lookup(str:String, trie:Trie):Iterator[Entry] = matches(str)(trie) match {
         case None => Iterator()
         case Some(m) => m.iterator
     }
     
     def matches(str:String)(trie:Trie):Option[Trie] = trie.find(str.toList)
-    
-    def change(str:String, number:String):Boolean = {
-        // TODO change both tries
-        val nodes = lookup(str)(nametrie).toList
+    def change(name:String, number:String):Boolean = {
+        // TODO change both tries ?? or just numtrie
+        val nodes = lookup(name).filter(e => e.name.equalsIgnoreCase(name)).toList
         nodes match {
             case Nil => false
             case e :: Nil => {
-                e.number = number
+            	val numPar = findParent(e, e.number)(numtrie)
+            	numPar match {
+            	    case Some(nu) => {
+            	    	nu.entries.remove(e)
+            	    	e.number = number
+            	    	add(numtrie, e, tx4lookup(number).toList)
+            	    	println("changed " + e)
+            	    }
+            	    case None => false
+            	}
                 true
             }
             case _ => false
@@ -262,7 +340,7 @@ class Phonebook(file:String) {
     
     def remove(entry:Entry):Boolean = {
         val namePar = findParent(entry, entry.name)(nametrie)
-		val numPar = findParent(entry, entry.name)(numtrie)
+		val numPar = findParent(entry, entry.number)(numtrie)
 		
         (namePar, numPar) match {
             case (Some(na), Some(nu)) => {
@@ -278,11 +356,11 @@ class Phonebook(file:String) {
     }
     // find the parent of this entry in a particular trie 
     private def findParent(entry:Entry, lookupBy:String)(trie:Trie):Option[Trie] = {
-        val chars = tx4Lookup(lookupBy)
+        val chars = tx4lookup(lookupBy)
         val (firstPart, lastChar) = chars.splitAt(chars.length - 1)
         matches(firstPart.mkString)(nametrie) match {
             case None => None
-            case Some(m) => m.find(lastChar) match {
+            case Some(m) => m.find(lastChar.toList) match {
                 case None => None
                 case Some(n) => if (n.entries.contains(entry)) Some(m) else None
             }
