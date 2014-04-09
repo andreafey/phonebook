@@ -10,6 +10,9 @@ import java.io.PrintWriter
 import scala.io.Source
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
+import java.nio.ByteBuffer
+import java.io.InputStream
+import java.io.ByteArrayInputStream
 
 @RunWith(classOf[JUnitRunner])
 class PhonebookTest extends FunSuite with Matchers with BeforeAndAfterEach {
@@ -60,27 +63,6 @@ class PhonebookTest extends FunSuite with Matchers with BeforeAndAfterEach {
     def contains(filename:String, contents:String):Boolean = 
         ! Source.fromFile(filename).getLines.forall(l => ! l.contains(contents))
     
-//    test("create should create new directory if needed") {
-//	    // test that the dir does not exist
-//        val dir = mockdir + "/stragetsrgtgsr"
-//		val file = "testfile.pb"
-//        new File(dir).exists should be (false)
-//        new File(dir, file).exists should be (false)
-//        Phonebook.main(Array("create", dir + "/" + file))
-//        val ndir = new File(dir)
-//        ndir.exists should be (true)
-//        ndir.isDirectory should be (true)
-//        new File(dir, file).exists should be (true)
-//    }
-//	test("create should create a new file") {
-//	    // create file
-//	    val file = "testfile.pb"
-//	    // test that file does not exist
-//        new File(mockdir, file).exists should be (false)
-//        Phonebook.main(Array("create", mockdir + "/" + file))
-//	    // test that file exists
-//        new File(mockdir, file).exists should be (true)
-//	}
 	test ("add should add someone if they're not in the pb") {
 	    val name = "Big Bird"
         val number = "1 800 SESAMEST"

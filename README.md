@@ -8,6 +8,8 @@ This is a phonebook application with both command-line utility functions and an 
 
 This project is complete but could use additional testing. Its feature set is small, but it is fast and correct. The phonebook lookup is implemented using a prefix trie, so once the data has been loaded it should be extremely fast even at scale. The command line utilities are less performant as the entire file is read for every action.
 
+Project is compatible with Java 7 & 8.
+
 ## Usage
 
 Phonebook application which can be run either as a command line utility or as an interactive command line application.
