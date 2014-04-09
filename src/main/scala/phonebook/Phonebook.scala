@@ -9,9 +9,10 @@ object Phonebook {
     val default = "hsphonebook.pb"
     /* Help is for the interactive console; usage is for the command line utility */
     def help = println("""Commands:
-  list, help, exit,
+  list, help,
   lookup <str>, reverse-lookup <str>, remove <str>,
-  add '<name>' '<number>', change '<name>' '<number>'""")
+  add '<name>' '<number>', change '<name>' '<number>'
+  [Enter] to quit""")
     def usage = {
         println("""Usage:
 	phonebook create <file>.pb          Creates empty phonebook
@@ -52,9 +53,6 @@ $ phonebook reverse-lookup '312 432 5432'
     def lookup(str: String, pb: phonebook.Phonebook, 
             reverse:Boolean = false, suppressOutput:Boolean = false) = {
         val matches = pb.lookup(str, reverse)
-//        val lookup = tx4lookup(str)
-//        val matches = if (reverse) pb.lookup(lookup)(pb.numtrie)
-//        else pb.lookup(lookup)(pb.nametrie)
         if (!suppressOutput) {
         	if (matches.isEmpty) println("No matches")
         	else matches.foreach(e => println(e))
@@ -68,7 +66,16 @@ $ phonebook reverse-lookup '312 432 5432'
     	        println ("match not found")
     	        false
     	    }
-    	    case 1 => pb.change(name, number)
+    	    case 1 => {
+    	        if (pb.change(name, number)) {
+    	            println("entry changed")
+    	            true
+    	        } else {
+    	            println("error encountered")
+    	            false
+    	        }
+    	        
+    	    }
     	    case _ => {
         	    println ("multiple matches found")
         	    matches.foreach(e => println(e))
@@ -82,6 +89,7 @@ $ phonebook reverse-lookup '312 432 5432'
       val matches = pb.lookup(name)
       if (matches.isEmpty) {
           pb.add(name, number)
+          println ("entry added")
           true
       }
       else {
@@ -92,15 +100,20 @@ $ phonebook reverse-lookup '312 432 5432'
     }
    
     def remove(name: String, pb: phonebook.Phonebook): Boolean = {
-       val matches = pb.lookup(name)
+       val matches = pb.lookup(name).toList
        matches.size match {
            case 0 => {
                println ("match not found")
                false
            }
            case 1 => {
-               pb.remove(matches.next())
-               true
+               if (pb.remove(matches(0))) {
+            	   println ("entry removed")
+            	   true
+               } else {
+                   println ("encountered error")
+                   false
+               }
            }
            case _ =>  {
     	       println ("multiple matches found")
@@ -317,48 +330,50 @@ class Phonebook(file:String) {
     
     def matches(str:String)(trie:Trie):Option[Trie] = trie.find(str.toList)
     def change(name:String, number:String):Boolean = {
-        // TODO change both tries ?? or just numtrie
         val nodes = lookup(name).filter(e => e.name.equalsIgnoreCase(name)).toList
         nodes match {
             case Nil => false
             case e :: Nil => {
-            	val numPar = findParent(e, e.number)(numtrie)
-            	numPar match {
-            	    case Some(nu) => {
-            	    	nu.entries.remove(e)
-            	    	e.number = number
-            	    	add(numtrie, e, tx4lookup(number).toList)
-            	    	println("changed " + e)
-            	    }
-            	    case None => false
-            	}
-                true
+                if (remove(e)) {
+                	add(e.name, number)
+                	true
+                } else false
             }
+            // multiple matches
             case _ => false
         }
     }
     
     def remove(entry:Entry):Boolean = {
-        val namePar = findParent(entry, entry.name)(nametrie)
-		val numPar = findParent(entry, entry.number)(numtrie)
+        val nameT = matches(tx4lookup(entry.name))(nametrie)
+		val numT = matches(tx4lookup(entry.number))(numtrie)
 		
-        (namePar, numPar) match {
+        (nameT, numT) match {
             case (Some(na), Some(nu)) => {
                 na.entries.remove(entry)
                 nu.entries.remove(entry)
                 true
             }
-            case _ => {
-            	println ("entry not removed")
-                false
-            } 
+            case _ => false
         } 
     }
     // find the parent of this entry in a particular trie 
     private def findParent(entry:Entry, lookupBy:String)(trie:Trie):Option[Trie] = {
         val chars = tx4lookup(lookupBy)
         val (firstPart, lastChar) = chars.splitAt(chars.length - 1)
-        matches(firstPart.mkString)(nametrie) match {
+        matches(firstPart.mkString)(trie) match {
+            case None => None
+            case Some(m) => m.find(lastChar.toList) match {
+                case None => None
+                case Some(n) => if (n.entries.contains(entry)) Some(m) else None
+            }
+        }
+    }
+    // find the node containing this entry in a particular trie 
+    private def findTrie(entry:Entry, lookupBy:String)(trie:Trie):Option[Trie] = {
+        val chars = tx4lookup(lookupBy)
+        val (firstPart, lastChar) = chars.splitAt(chars.length - 1)
+        matches(chars)(trie) match {
             case None => None
             case Some(m) => m.find(lastChar.toList) match {
                 case None => None
