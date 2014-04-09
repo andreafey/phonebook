@@ -1,15 +1,18 @@
 [![Build Status](https://travis-ci.org/andreafey/conway.svg)](https://travis-ci.org/andreafey/conway)
 
-Phonebook
-=========
+#Phonebook
 
-Scala phonebook implementation
+This is a phonebook application with both command-line utility functions and an interactive console. It offers rudimentary data storage - name and phone number only - with the ability to modify the phone number or remove the entry. It is implemented in Scala.
 
-# Usage
+## Project Notes
+
+This project is complete but could use additional testing. Its feature set is small, but it is fast and correct. The phonebook lookup is implemented using a prefix trie, so once the data has been loaded it should be extremely fast even at scale. The command line utilities are less performant as the entire file is read for every action.
+
+## Usage
 
 Phonebook application which can be run either as a command line utility or as an interactive command line application.
 
-## Command Line Utility
+### Command Line Utility
 
 ```
 Usage:
@@ -24,7 +27,7 @@ Supports all commands below without the phonebook prefix or -b file switch
     phonebook reverse-lookup '312 432 4252' [-b <file>.pb]
 ```
 
-## Command Line Application
+### Command Line Application
 
 In order to use the interactive application, you must first create a phone book from the command line utility. 
 
@@ -38,16 +41,43 @@ Available Commands:
    [Enter] to quit"
 ```
 
-### IDE (Eclipse Scala IDE)
+#### From Eclipse Scala IDE
 
-Right-click on the Phonebook.scala file
-  > Run Configurations > Arguments > create foo.pb
+    Right-click on the Phonebook.scala file
+      > Run Configurations > Arguments >create foo.pb
+      OR 
+      > Run Configurations > Arguments >open foo.pb
 
-Right-click on the Phonebook.scala file
-  > Run Configurations > Arguments > open foo.pb
+#### From SBT
 
-TODO
+    $ sbt "run create foo.pb"
+    OR
+    $ sbt "run open foo.pb"
 
-### SBT
+#### Sample session
+```
+created phonebook foo.pb
+Enter a command (help for command list):
+add 'Big Bird' '1 800 YELLOWME'   
+entry added
+list
+Big Bird 1 800 YELLOWME
+add 'Ernie' '555-1233'
+entry added
+add 'Cookie Monster' '456 2356'
+entry added
+add 'Ernest Hemmingway' '678 345 4545'
+entry added
+list
+Big Bird 1 800 YELLOWME
+Cookie Monster 456 2356
+Ernest Hemmingway 678 345 4545
+Ernie 555-1233
+lookup ern
+cmdargs:  ern
+search ern
+Ernest Hemmingway 678 345 4545
+Ernie 555-1233
 
-TODO
+Changes saved. Goodbye.
+```
