@@ -263,8 +263,8 @@ $ phonebook reverse-lookup '312 432 5432'
 }
 class Phonebook(file:String) {
     
-	val nametrie:Trie = new Trie(' ')
-	val numtrie:Trie = new Trie(' ')
+	val nametrie:PrefixTrie[Entry] = new PrefixTrie()
+	val numtrie:PrefixTrie[Entry] = new PrefixTrie()
     buildTrie(file)
 	
     def buildTrie(file:String):Unit = {
@@ -279,55 +279,16 @@ class Phonebook(file:String) {
 	    override def toString = name + " " + number
 	}
 	
-	// TODO generify
-    class Trie(val c:Char, 
-            val children:collection.mutable.SortedSet[Trie] = collection.mutable.SortedSet(), 
-            val entries:collection.mutable.Set[Entry] = collection.mutable.Set()) 
-            extends Comparable[Trie] {
-        override def toString = "%s -> [%d] -> ".format(c, children.size) + entries
-        def iterator:Iterator[Entry] = toList(children.toList, List()).iterator
-        private def toList(children:List[Trie], 
-                acc:List[Entry]):List[Entry] = children.toList match {
-            // TODO make more efficient with cons lists instead of concat
-            case List() => entries.toList ++ acc
-            case ch :: chs => entries.toList ++ acc ++ ch.toList(ch.children.toList, List()) ++ toList(chs, List())
-        }
-        def find(chars:List[Char]):Option[Trie] = chars match {
-            case Nil => Some(this)
-            case c :: cs => {
-                children.find(t => t.c == c) match {
-                    case None => None
-                    case Some(child) => child.find(cs)
-                }
-            }
-        }
-        override def compareTo(that:Trie) = this.c.compareTo(that.c)
-    }
-    
     /** Helper method to strip off non-alphanumeric chars */
     private def tx4lookup(str:String):String = 
         str.toLowerCase.replaceAll("[^a-z0-9]", "")
     
     def add(name:String, number:String):Unit = {
         val entry = new Entry(name, number)
-        add(nametrie, entry, tx4lookup(name).toList)
-        add(numtrie, entry, tx4lookup(number).toList)
+        nametrie.put(tx4lookup(name), entry)
+        numtrie.put(tx4lookup(number), entry)
         Unit
     } 
-    private def add(trie:Trie, entry:Entry, seq:List[Char]):Trie = seq match {
-        case List() => {
-            trie.entries.add(entry)
-            trie
-        }
-        case c :: cs => trie.children.find(child => c == child.c) match {
-            case None => {
-                val subTrie = new Trie(c)
-                trie.children.add(subTrie)
-                add(subTrie, entry, cs)
-            }
-            case Some(t) => add(t, entry, cs)
-        }
-    }
     
     def entries = nametrie.iterator
     
@@ -342,15 +303,15 @@ class Phonebook(file:String) {
     }
     
     def lookup(str:String, reverse:Boolean = false):Iterator[Entry] =
-    		if (reverse) lookup(tx4lookup(str), numtrie)
-    		else lookup(tx4lookup(str), nametrie)
+		if (reverse) lookup(tx4lookup(str), numtrie)
+		else lookup(tx4lookup(str), nametrie)
     		
-    private def lookup(str:String, trie:Trie):Iterator[Entry] = matches(str)(trie) match {
+    private def lookup(str:String, trie:PrefixTrie[Entry]):Iterator[Entry] = matches(str)(trie) match {
         case None => Iterator()
         case Some(m) => m.iterator
     }
     
-    def matches(str:String)(trie:Trie):Option[Trie] = trie.find(str.toList)
+    def matches(str:String)(trie:PrefixTrie[Entry]):Option[PrefixTrie[Entry]] = trie.findTrie(str.toList)
     def change(name:String, number:String):Boolean = {
         val nodes = lookup(name).filter(e => e.name.equalsIgnoreCase(name)).toList
         nodes match {
@@ -367,41 +328,8 @@ class Phonebook(file:String) {
     }
     
     def remove(entry:Entry):Boolean = {
-        val nameT = matches(tx4lookup(entry.name))(nametrie)
-		val numT = matches(tx4lookup(entry.number))(numtrie)
-		
-        (nameT, numT) match {
-            case (Some(na), Some(nu)) => {
-                na.entries.remove(entry)
-                nu.entries.remove(entry)
-                true
-            }
-            case _ => false
-        } 
-    }
-    // find the parent of this entry in a particular trie 
-    private def findParent(entry:Entry, lookupBy:String)(trie:Trie):Option[Trie] = {
-        val chars = tx4lookup(lookupBy)
-        val (firstPart, lastChar) = chars.splitAt(chars.length - 1)
-        matches(firstPart.mkString)(trie) match {
-            case None => None
-            case Some(m) => m.find(lastChar.toList) match {
-                case None => None
-                case Some(n) => if (n.entries.contains(entry)) Some(m) else None
-            }
-        }
-    }
-    // find the node containing this entry in a particular trie 
-    private def findTrie(entry:Entry, lookupBy:String)(trie:Trie):Option[Trie] = {
-        val chars = tx4lookup(lookupBy)
-        val (firstPart, lastChar) = chars.splitAt(chars.length - 1)
-        matches(chars)(trie) match {
-            case None => None
-            case Some(m) => m.find(lastChar.toList) match {
-                case None => None
-                case Some(n) => if (n.entries.contains(entry)) Some(m) else None
-            }
-        }
+        nametrie.remove(tx4lookup(entry.name))
+        numtrie.remove(tx4lookup(entry.number))
     }
 
 }

@@ -81,10 +81,7 @@ class PhonebookTest extends FunSuite with Matchers with BeforeAndAfterEach {
         Console.setOut(new PrintStream(out));
         // attempt to add duplicate
         Phonebook.main(Array("add", name, "342 323", "-b", pb))
-        val output = out.toString
-        // TODO this prints to console instead of redirecting output
-        println("expect not added:  " + output)
-        output.contains("not added") should be (true)
+        out.toString.contains("not added") should be (true)
 	}
 	test("add should use the default phonebook if filename not provided") {
 	    val name = "Joel Spolsky"
@@ -204,9 +201,9 @@ class PhonebookTest extends FunSuite with Matchers with BeforeAndAfterEach {
         val newit = phonebook.lookup(entry.name)
         newit.isEmpty should be (true)
 	}
-	test("remove should prune trie") {
-	    
-	}
+//	test("remove should prune trie") {
+//	    
+//	}
 //	test("remove should leave remaining people in file") {
 //	    
 //	}
@@ -216,13 +213,13 @@ class PhonebookTest extends FunSuite with Matchers with BeforeAndAfterEach {
 //	test("remove should remove from phone trie") {
 //	    
 //	}
-	test("change should modify file") {
-	    
-	}
-	test("change should modify both tries") {
-	    
-	}
-	test("change should not modify other pb members") {
-	    
-	}
+//	test("change should modify file") {
+//	    
+//	}
+//	test("change should modify both tries") {
+//	    
+//	}
+//	test("change should not modify other pb members") {
+//	    
+//	}
 }
