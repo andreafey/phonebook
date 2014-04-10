@@ -293,10 +293,7 @@ class Phonebook(file:String) {
     def entries = nametrie.iterator
     
     def save = {
-		val pbdata = if (entries.nonEmpty) (for {
-			e <- entries
-		} yield "'%s' '%s'".format(e.name, e.number)).mkString("\n")
-		else ""
+        val pbdata = (nametrie.iterator map (e => "'%s' '%s'".format(e.name, e.number))).mkString("\n")
 		val out = new java.io.FileWriter(file)
 		out.write(pbdata)
 		out.close
