@@ -3,9 +3,9 @@ package phonebook;
 import collection.mutable.Map
 import scala.annotation.tailrec
 
-class PrefixTrie[I] {
-	val children:Map[Char, PrefixTrie[I]] = Map()
-	var item:Option[I] = None
+class PrefixTrie[I] extends Iterable[I] {
+	private val children:Map[Char, PrefixTrie[I]] = Map()
+	private var item:Option[I] = None
 	
 	def put(string:String, item:I):Unit = put(string.toList, item)
 	@tailrec
@@ -24,39 +24,37 @@ class PrefixTrie[I] {
 	        child.put(cs, item)
 	    }
 	}
-	def remove(string:String):Boolean = remove(string.toList)
-	// TODO prune - perhaps a "last itemed parent" acc?
-//	@tailrec
-	private def remove(chars:List[Char]):Boolean = findTrie(chars) match {
+	def remove(string:String):Boolean = {
+	    val removed = remove(string.toList)
+	    prune(string.toList)
+	    removed
+	}
+	// Assume this is a valid path in the trie
+	private def prune(chars:List[Char]):Unit = chars match {
+	    case Nil => Unit
+	    case c :: cs => if (children.contains(c)) {
+	        if (children(c).items.isEmpty) children.remove(c)
+	    }
+	}
+	private def remove(chars:List[Char]):Boolean = find(chars) match {
 	    case None => false
 	    case Some(t) => {
 	        t.item = None
 	        true
 	    }
 	}
-	// TODO maybe this should return a trie? then could get iterator from it...
-	def find(string:String):Option[I] = findTrie(string.toList) match {
-	    case None => None
-	    case Some(t) => t.item
-	}
-//	@tailrec
 	// if it exists, find the node at the end of this search
-	def findTrie(chars:List[Char]):Option[PrefixTrie[I]] = chars match {
+	def find(chars:List[Char]):Option[PrefixTrie[I]] = chars match {
 	    case Nil => Some(this)
 	    case c :: cs => children.get(c) match {
 	        case None => None
-	        case Some(t) => t.findTrie(cs) 
+	        case Some(t) => t.find(cs) 
 	    }
 	}
-	def iterator():Iterator[I] = ilist.iterator
+	override def iterator():Iterator[I] = items.iterator
 	
-	// TODO is this lazy, or does toList force eval?
-	private def ilist:List[I] = item match {
-	    case None => ((for {
-	        (k,v) <- children
-	    } yield v.ilist).toList).flatten
-	    case Some(i) => i :: ((for {
-	        (k,v) <- children
-	    } yield v.ilist).toList).flatten
+	def items:Stream[I] = item match {
+	    case None => (children.map { case (k,v) => v.items }).flatten.toStream
+	    case Some(i) => i #:: (children.map { case (k,v) => v.items }).flatten.toStream
 	}
 }
