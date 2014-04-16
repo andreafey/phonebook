@@ -8,23 +8,7 @@ import java.util.regex.Pattern
 
 object Phonebook {
     val default = "hsphonebook.pb"
-//    /* Help is for the interactive console; usage is for the command line utility */
-//    def help = println("""Commands:
-//  list, help,
-//  lookup <str>, reverse-lookup <str>, remove <str>,
-//  add '<name>' '<number>', change '<name>' '<number>'
-//  [Enter] to quit""")
-//    def usage = {
-//        println("""Usage:
-//    phonebook create <file>.pb          Creates empty phonebook
-//    phonebook open [<file>.pb]          Opens an interactive phonebook; creates empty phonebook if needed
-//                                        Supports all commands below without the phonebook prefix or -b file switch
-//    phonebook lookup <name> [-b <file>.pb]     
-//    phonebook add '<name>' '123 456 4323' [-b <file>.pb]
-//    phonebook change '<name>' '232 987 3940' [-b <file>.pb]
-//    phonebook remove '<name>' [-b <file>.pb]
-//    phonebook reverse-lookup '312 432 4252' [-b <file>.pb]""")
-                /*
+/*
 created phonebook hsphonebook.pb in the current directory
 
 $ phonebook lookup Sarah -b hsphonebook.pb # error message on no such phonebook
@@ -37,9 +21,7 @@ $ phonebook add 'John Michael' '123 456 4323' -b hsphonebook.pb # error message 
 $ phonebook change 'John Michael' '234 521 2332' -b hsphonebook.pb # error message on not exist
 $ phonebook remove 'John Michael' -b hsphonebook.pb # error message on not exist
 $ phonebook reverse-lookup '312 432 5432'
-* */
-//    }
-    
+*/
     sealed abstract class Status
     case class Failure(message:String) extends Status
     case class TooManyMatches(message:String) extends Status
@@ -59,7 +41,7 @@ $ phonebook reverse-lookup '312 432 5432'
     def saveToFile(phonebook:Phonebook, file:File) = {
         val pbdata = (phonebook.entries map (e => "'%s' '%s'".format(e.name, e.number))).mkString("\n")
 		val out = new java.io.FileWriter(file)
-		out.write(pbdata)
+		out.write(pbdata + "\n")
 		out.close
     }
     
@@ -100,56 +82,63 @@ $ phonebook reverse-lookup '312 432 5432'
     
     case class ParserConfig(file: File = new File("hsphonebook.pb"), pb: Phonebook = new Phonebook(), interactive: Boolean = false,
             create: Boolean = false, remove: Boolean = false, add: Boolean = false, 
-            change: Boolean = true, lookup: Boolean = false, reverse: Boolean = true,
+            change: Boolean = false, lookup: Boolean = false, reverse: Boolean = false,
             search: String = "", name: String = "", number: String = "")
             
     private val parser = new scopt.OptionParser[ParserConfig]("phonebook") {
-//        implicit val pbRead: scopt.Read[Phonebook] = scopt.Read.reads { Phonebook.fromFile(_) }
         override def showUsageOnError = true
         head("phonebook", "0.x")
-        help("help") text("displays this usage information")
         cmd("create") optional() action { (_, c) =>
             c.copy(create = true, interactive = true) } text (
-                    "creates phonebook and opens in an interactive console") children(
+                "creates phonebook and opens in an interactive console") children(
             arg[File]("<file>") action { (x, c) => {
                 if (x.createNewFile) c.copy(file = x)
                 else c }} text("path to new phonebook file"))
         cmd("open") optional() action { (_, c) =>
             c.copy(interactive = true) } text (
-                    "opens existing phonebook in an interactive console") children(
+                "opens existing phonebook in an interactive console") children(
             arg[File]("<file>") optional() action { (x, c) =>
                 c.copy(file = x, pb = fromFile(x)) } text("path to existing phonebook file; default used if omitted"))
         cmd("lookup") optional() action { (srch, c) => c.copy(lookup = true) } children(
-            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text("search string"))
+            arg[String]("<search>") action { (x, c) => c.copy(search = x) }) text("lookup names")
         cmd("reverse-lookup") optional() action { (srch, c) => c.copy(lookup = true, reverse = true) } children(
-            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text("search string"))
+            arg[String]("<search>") action { (x, c) => c.copy(search = x) }) text("lookup by phone number")
         cmd("add") optional() action { (srch, c) => c.copy(add = true) } children(
             arg[String]("'<name>'") action { (x, c) => c.copy(name = x) } text("full name, surrounded by single quotes"),
-            arg[String]("<number>") action { (x, c) => c.copy(number = x) } text("phone number, surrounded by single quotes"))
+            arg[String]("'<number>'") action { (x, c) => c.copy(number = x) } text(
+                    "phone number, surrounded by single quotes")) text("add phonebook entry")
         cmd("change") optional() action { (srch, c) => c.copy(change = true) } children(
-            arg[String]("'<search>'") action { (x, c) => c.copy(name = x) } text("must match exactly one name to change"),
-            arg[String]("<number>") action { (x, c) => c.copy(number = x) } text("phone number, surrounded by single quotes"))
+            arg[String]("'<name>'") action { (x, c) => c.copy(name = x) } text("must match exactly one name"),
+            arg[String]("'<number>'") action { (x, c) => c.copy(number = x) } text(
+                    "phone number, surrounded by single quotes")) text("change phone number associated with name")
         cmd("remove") optional() action { (srch, c) => c.copy(remove = true) } children(
-            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text("must match exactly one name to remove"))
+            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text(
+                    "must match exactly one name")) text("remove item which matches search")
         opt[File]('b', "book") action { (x, c) => c.copy(file = x, pb = fromFile(x)) } text("path to existing phonebook file; default used if omitted")
         opt[Unit]('i', "interactive") action { (_, c) => c.copy(interactive = true) } text ("applies other commands and opens phonebook in interactive mode")
+        help("help") text("displays this usage information")
     }
         
     private val consoleParser = new scopt.OptionParser[ParserConfig]("phonebook") {
         override def showUsageOnError = true
-        help("help") text("displays this usage information")
         cmd("lookup") optional() action { (srch, c) => c.copy(lookup = true) } children(
-            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text("search string"))
+            arg[String]("<search>") action { (x, c) => c.copy(search = x) }) text("lookup names")
         cmd("reverse-lookup") optional() action { (srch, c) => c.copy(lookup = true, reverse = true) } children(
-            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text("search string"))
+            arg[String]("<search>") action { (x, c) => c.copy(search = x) }) text("lookup by phone number")
         cmd("add") optional() action { (srch, c) => c.copy(add = true) } children(
             arg[String]("'<name>'") action { (x, c) => c.copy(name = x) } text("full name, surrounded by single quotes"),
-            arg[String]("<number>") action { (x, c) => c.copy(number = x) } text("phone number, surrounded by single quotes"))
+            arg[String]("'<number>'") action { (x, c) => c.copy(number = x) } text(
+                    "phone number, surrounded by single quotes")) text("add phonebook entry")
         cmd("change") optional() action { (srch, c) => c.copy(change = true) } children(
-            arg[String]("'<search>'") action { (x, c) => c.copy(name = x) } text("must match exactly one name to change"),
-            arg[String]("<number>") action { (x, c) => c.copy(number = x) } text("phone number, surrounded by single quotes"))
+            arg[String]("'<name>'") action { (x, c) => c.copy(name = x) } text("must match exactly one name"),
+            arg[String]("'<number>'") action { (x, c) => c.copy(number = x) } text(
+                    "phone number, surrounded by single quotes")) text("change phone number associated with name")
         cmd("remove") optional() action { (srch, c) => c.copy(remove = true) } children(
-            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text("must match exactly one name to remove"))
+            arg[String]("<search>") action { (x, c) => c.copy(search = x) } text(
+                    "must match exactly one name")) text("remove item which matches search")
+        cmd("help") action { (_, c) => {
+            showUsage
+            c } } text("displays this usage information")
     }
     /**
      * Prints search output to console or error message if no matches found
@@ -208,24 +197,26 @@ $ phonebook reverse-lookup '312 432 5432'
             case NoMatchFound(m) => println(m)
         }
     def configActions(c: ParserConfig):Unit = { 
-            if (c.create)
-                println("New phonebook created")
-            else if (c.lookup)
-                lookupAction(c.pb, c.search, c.reverse)
-            else if (c.add) 
-                addAction(c.pb, c.name, c.number, c.file)
-            else if (c.change) 
-	            changeAction(c.search, c.number, c.pb, c.file)
-	        else if (c.remove)
-	            removeAction(c.search, c.pb, c.file)
-            if (c.interactive)
-                interactive(c.pb, c.file)
-        }
+        if (c.create)
+            println("New phonebook created")
+        else if (c.lookup)
+            lookupAction(c.pb, c.search, c.reverse)
+        else if (c.add) 
+            addAction(c.pb, c.name, c.number, c.file)
+        else if (c.change) 
+            changeAction(c.name, c.number, c.pb, c.file)
+        else if (c.remove)
+            removeAction(c.search, c.pb, c.file)
+        if (c.interactive)
+            interactive(c.pb, c.file)
+    }
     /**
      * Parse command line arguments and 
      */
     def main(args: Array[String]): Unit = {
-        parser.parse(args, ParserConfig()) map (configActions)
+        val conf = ParserConfig()
+        parser.parse(args, conf) map (configActions)
+//        saveToFile(conf.pb, conf.file)
     }
     
    
@@ -234,10 +225,11 @@ $ phonebook reverse-lookup '312 432 5432'
      * according to commands.
      */
     private def interactive(pb: Phonebook, file:File): Unit = {
-        println("Enter a command (help for command list):")
+        println("Enter a command (--help for command list):")
         Iterator.continually(Console.readLine).takeWhile(_ != "").foreach(line => {
             val args = parseArgs(line)
-            consoleParser.parse(args, ParserConfig()) map (configActions)
+            // TODO add try/catch feeds to help
+            consoleParser.parse(args, ParserConfig().copy(file = file, pb = pb)) map (configActions)
         })
     }
   // copied from StackOverflow: 
