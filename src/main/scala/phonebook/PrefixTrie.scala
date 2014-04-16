@@ -5,7 +5,7 @@ import scala.annotation.tailrec
 
 class PrefixTrie[I] extends Iterable[I] {
 	private val children:Map[Char, PrefixTrie[I]] = Map()
-	private var item:Option[I] = None
+	var item:Option[I] = None
 	
 	def put(string:String, item:I):Unit = put(string.toList, item)
 	@tailrec
